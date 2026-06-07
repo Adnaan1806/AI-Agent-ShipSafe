@@ -1,0 +1,381 @@
+{
+  "info": {
+    "name": "ShipSafe API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "ShipSafe backend — http://localhost:3001. Auth endpoints need no token. Protected routes need Authorization: Bearer <token>."
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3001/api/auth/register"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@shipsafe.dev\",\n  \"password\": \"testpass123\"\n}"
+            },
+            "description": "Register a new user. Returns 201 + token on success. Returns 400 if email or password is missing. Returns 400 if password is shorter than 8 characters. Returns 409 if email is already registered."
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3001/api/auth/login"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@shipsafe.dev\",\n  \"password\": \"testpass123\"\n}"
+            },
+            "description": "Login with existing credentials. Returns 200 + token. Returns 400 if email or password is missing. Returns 401 if credentials are invalid."
+          }
+        },
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/auth/me"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns the authenticated user profile. Returns 401 if Authorization header is missing or token is invalid."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List projects",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/projects"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns all projects for the authenticated user. Returns 200 with projects array. Returns 401 if no token."
+          }
+        },
+        {
+          "name": "Create project",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3001/api/projects"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"API Test Project\",\n  \"description\": \"Created via API testing\"\n}"
+            },
+            "description": "Creates a new project. Returns 201 on success. Returns 400 if name is missing or empty string. Returns 401 if no token."
+          }
+        },
+        {
+          "name": "Get project by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/projects/nonexistent-project-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns a project with its requirements, suites and runs. Returns 404 if the ID does not exist or belongs to another user."
+          }
+        },
+        {
+          "name": "Update project",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "http://localhost:3001/api/projects/nonexistent-project-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Renamed Project\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "description": "Updates a project name and description. Returns 200 on success. Returns 404 if project not found."
+          }
+        },
+        {
+          "name": "Delete project",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:3001/api/projects/nonexistent-project-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Deletes a project and cascades to all its suites and cases. Returns 200. Returns 401 if no token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "TCG — Test Case Generator",
+      "item": [
+        {
+          "name": "List suites",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/suites"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns all test suites for the authenticated user. Returns 200. Returns 401 if no token."
+          }
+        },
+        {
+          "name": "Get suite by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/suites/nonexistent-suite-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns a suite with its active test cases. Returns 404 if suite does not exist or belongs to another user."
+          }
+        },
+        {
+          "name": "Generate test cases",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/generate"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requirementText\": \"User can log in with valid email and password. Invalid credentials show a generic error.\",\n  \"suiteName\": \"Login Suite\"\n}"
+            },
+            "description": "Generates AI test cases from a requirement. Returns 201 + suite. Returns 400 if requirementText is missing. Returns 502 if the AI service is down."
+          }
+        },
+        {
+          "name": "Add manual test case",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/suites/nonexistent-suite-id/cases"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"User can reset password\",\n  \"type\": \"functional\",\n  \"priority\": \"P1\",\n  \"steps\": [\"Step 1: Click Forgot Password\", \"Step 2: Enter email\"],\n  \"expectedResult\": \"Reset email is sent\"\n}"
+            },
+            "description": "Adds a manual test case to an existing suite. Returns 201 on success. Returns 404 if suite not found."
+          }
+        },
+        {
+          "name": "Update test case",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/cases/nonexistent-case-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated title\",\n  \"priority\": \"P1\"\n}"
+            },
+            "description": "Updates one or more fields on a test case. Returns 200 on success. Returns 404 if case not found."
+          }
+        },
+        {
+          "name": "Activate suite",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/suites/nonexistent-suite-id/activate"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Marks a suite as active. Returns 200. Returns 404 if suite not found."
+          }
+        },
+        {
+          "name": "Delete suite",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/suites/nonexistent-suite-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Permanently deletes a suite and all its cases. Returns 200. Returns 404 if not found."
+          }
+        },
+        {
+          "name": "Delete test case",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:3001/api/tcg/cases/nonexistent-case-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Soft-deletes a test case. Returns 200. Returns 404 if not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Testing Sessions",
+      "item": [
+        {
+          "name": "List sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/api-testing/sessions"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns the last 50 API testing sessions for the authenticated user. Returns 200. Returns 401 if no token."
+          }
+        },
+        {
+          "name": "Get session by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/api/api-testing/sessions/nonexistent-session-id"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXEzeW82cDUwMDAwdHVyc3pzeXNkZGZ1IiwiaWF0IjoxNzgwODQ3NjM1LCJleHAiOjE3ODE0NTI0MzV9.AjMwNsSiGq9kU9v2xee3kIDKGhkazfSRLO5oH9pgXQ0"
+              }
+            ],
+            "description": "Returns a session with all its test results. Returns 404 if session not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3001/health"
+            },
+            "header": [],
+            "description": "Returns service health. Always 200, no auth required."
+          }
+        }
+      ]
+    }
+  ]
+}

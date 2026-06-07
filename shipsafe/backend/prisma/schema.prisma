@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  apiKey    String   @unique @default(cuid())
+  createdAt DateTime @default(now())
+
+  projects Project[]
+  sessions TestSession[]
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  user         User          @relation(fields: [userId], references: [id])
+  requirements Requirement[]
+  suites       TestSuite[]
+  runs         TestRun[]
+  sessions     TestSession[]
+}
+
+model Requirement {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  suites  TestSuite[]
+}
+
+model TestSuite {
+  id            String   @id @default(cuid())
+  projectId     String
+  requirementId String?
+  name          String
+  version       Int      @default(1)
+  status        String   @default("draft")
+  source        String   @default("ai")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requirement Requirement? @relation(fields: [requirementId], references: [id])
+  cases       TestCase[]
+  sessions    TestSession[]
+}
+
+model TestCase {
+  id             String   @id @default(cuid())
+  suiteId        String
+  title          String
+  type           String
+  priority       String
+  preconditions  String?
+  steps          Json
+  expectedResult String
+  testData       Json?
+  status         String   @default("active")
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  suite   TestSuite    @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  results TestResult[]
+}
+
+model TestRun {
+  id          String    @id @default(cuid())
+  projectId   String?
+  type        String
+  status      String    @default("queued")
+  triggeredBy String    @default("manual")
+  branch      String?
+  commitSha   String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  project  Project?     @relation(fields: [projectId], references: [id])
+  sessions TestSession[]
+  reports  Report[]
+}
+
+model TestSession {
+  id          String    @id @default(cuid())
+  type        String
+  status      String    @default("queued")
+  input       Json
+  targetUrl   String?
+  projectId   String?
+  runId       String?
+  suiteId     String?
+  userId      String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  user    User?      @relation(fields: [userId], references: [id])
+  project Project?   @relation(fields: [projectId], references: [id])
+  run     TestRun?   @relation(fields: [runId], references: [id])
+  suite   TestSuite? @relation(fields: [suiteId], references: [id])
+  results TestResult[]
+  reports Report[]
+}
+
+model TestResult {
+  id         String  @id @default(cuid())
+  sessionId  String
+  caseId     String?
+  stepIndex  Int
+  toolName   String?
+  stepName   String
+  status     String
+  durationMs Int
+  input      Json?
+  output     Json?
+  screenshot String?
+  error      String?
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  case    TestCase?   @relation(fields: [caseId], references: [id])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  sessionId   String?
+  runId       String?
+  htmlContent String   @db.Text
+  summary     Json?
+  createdAt   DateTime @default(now())
+
+  session TestSession? @relation(fields: [sessionId], references: [id])
+  run     TestRun?     @relation(fields: [runId], references: [id])
+}
