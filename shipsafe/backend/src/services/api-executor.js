@@ -130,6 +130,10 @@ export async function executeHttpTest(testCase, timeoutMs = 15000) {
       responseBody = ct.includes('application/json') ? await res.json() : await res.text();
     } catch { /* ignore */ }
 
+    // Collect all response headers as a plain lowercase-keyed object
+    const responseHeaders = {};
+    for (const [k, v] of res.headers.entries()) responseHeaders[k.toLowerCase()] = v;
+
     const passed = res.status === expectedStatus;
     return {
       status: passed ? 'passed' : 'failed',
@@ -137,6 +141,7 @@ export async function executeHttpTest(testCase, timeoutMs = 15000) {
       expectedStatus,
       durationMs,
       responseBody,
+      responseHeaders,
       error: passed ? null : `Expected HTTP ${expectedStatus}, got ${res.status}`,
     };
   } catch (err) {

@@ -146,3 +146,35 @@ model Report {
   session TestSession? @relation(fields: [sessionId], references: [id])
   run     TestRun?     @relation(fields: [runId], references: [id])
 }
+
+// Stores the inferred JSON schema for each API endpoint after successful responses.
+// Used by the schema learning + contract drift detection system.
+model ApiEndpointSchema {
+  id          String   @id @default(cuid())
+  projectId   String   @default("global")
+  endpointKey String
+  schema      Json
+  sampleCount Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, endpointKey])
+}
+
+// Stores per-endpoint execution history used by the agent memory system.
+// The AI reads this context before generating test cases.
+model ApiEndpointMemory {
+  id            String    @id @default(cuid())
+  projectId     String    @default("global")
+  endpointKey   String
+  runCount      Int       @default(0)
+  passCount     Int       @default(0)
+  failCount     Int       @default(0)
+  avgDurationMs Float     @default(0)
+  commonFailures Json     @default("[]")
+  lastRunAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([projectId, endpointKey])
+}

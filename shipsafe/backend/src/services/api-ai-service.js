@@ -1,8 +1,16 @@
+import { generateBody } from './api-data-generator.js';
+import { buildMemoryContext } from './api-memory.js';
+
 const OLLAMA_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434/api/generate';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5';
 
-export async function generateApiTestCases(endpoint) {
-  const prompt = buildPrompt(endpoint);
+// Generate test cases for a single endpoint.
+// memory: ApiEndpointMemory record (or null) — injected as context into the AI prompt.
+export async function generateApiTestCases(endpoint, memory = null) {
+  // Enrich the body with realistic values before handing to AI
+  const enrichedBody = endpoint.body ? generateBody(endpoint.body) : null;
+  const memoryCtx = memory ? buildMemoryContext(memory) : '';
+  const prompt = buildPrompt({ ...endpoint, body: enrichedBody }, memoryCtx);
 
   const res = await fetch(OLLAMA_URL, {
     method: 'POST',
@@ -41,27 +49,27 @@ export async function generateApiTestCases(endpoint) {
   return parsed.filter(tc => tc && typeof tc === 'object' && tc.description);
 }
 
-function buildPrompt(endpoint) {
+function buildPrompt(endpoint, memoryCtx) {
   const isReadOnly = ['GET', 'HEAD', 'OPTIONS'].includes(endpoint.method.toUpperCase());
   const bodyStr = endpoint.body ? JSON.stringify(endpoint.body, null, 2) : 'null';
   const headersStr = JSON.stringify(endpoint.headers, null, 2);
 
   const methodNote = isReadOnly
-    ? `IMPORTANT: This is a ${endpoint.method} request — it has NO request body. Do NOT generate tests that send body payloads or test for missing body fields. Only test URL variations (valid path, non-existent resource, out-of-range ID).`
-    : `This is a ${endpoint.method} request with a request body. Generate tests that vary the body payload.`;
+    ? `IMPORTANT: This is a ${endpoint.method} request — no request body. Only generate URL/path variation tests.`
+    : `This is a ${endpoint.method} request with a body. Vary the payload for each test type.`;
 
   const testIdeas = isReadOnly
-    ? `- Happy path: call the URL as-is → expect 200
-- Non-existent resource: change the path ID to 99999 → expect 404
-- Edge case: change the path ID to 0 or a string like "abc" → observe the response`
-    : `- Positive: valid payload → expect 2xx
-- Negative: missing a required field → expect 400
+    ? `- Happy path: call as-is → expect 200
+- Non-existent resource: replace path ID with 99999 → expect 404
+- Edge case: path ID = 0 or "abc" → observe response`
+    : `- Positive: fully valid payload → expect 2xx. Include assertions for response body schema.
+- Negative: omit a required field → expect 400
 - Invalid types: send wrong data types → expect 400 or 422
-- Auth: remove Authorization header (only if auth headers exist) → expect 401
-- Edge: empty string or null for a required field → expect 400`;
+- Auth: remove Authorization header if present → expect 401
+- Edge: null or empty string for required field → expect 400`;
 
-  return `You are a QA engineer generating API test cases.
-
+  return `You are a senior QA engineer generating API test cases with detailed response assertions.
+${memoryCtx ? '\n' + memoryCtx + '\n' : ''}
 Endpoint:
   Name: ${endpoint.name}
   Method: ${endpoint.method}
@@ -72,9 +80,9 @@ Endpoint:
 
 ${methodNote}
 
-Generate 3–5 test cases. Return a JSON array only. No markdown. No explanation.
+Generate 3–5 test cases. Return a JSON array ONLY. No markdown. No explanation.
 
-Each element must match this shape exactly:
+Each element MUST match this exact shape:
 {
   "description": "short imperative test name",
   "type": "positive" | "negative" | "auth" | "edge",
@@ -82,7 +90,14 @@ Each element must match this shape exactly:
   "url": "full URL including any path changes",
   "headers": { "key": "value" },
   "body": null,
-  "expectedStatus": 200
+  "expectedStatus": 200,
+  "assertions": {
+    "expectedStatus": 200,
+    "expectedHeaders": { "content-type": "application/json" },
+    "requiredFields": ["id", "name"],
+    "schema": { "id": "number", "name": "string", "email": "string" },
+    "notNull": ["id"]
+  }
 }
 
 Test ideas for this endpoint:
@@ -91,8 +106,10 @@ ${testIdeas}
 Rules:
 - Never use placeholder values like "string" or "value" — use realistic data
 - For GET/HEAD: body must always be null
-- For mutations: body must be a JSON object with real field values
-- Set expectedStatus to the exact HTTP status you expect (200, 201, 400, 401, 404, 422, etc.)
+- For positive tests: assertions.requiredFields and assertions.schema must list the actual response fields you expect
+- For negative/auth/edge tests: assertions.requiredFields and assertions.schema should be [] and {}
+- assertions.expectedHeaders must always include { "content-type": "application/json" } for non-error responses
+- Set expectedStatus to the exact HTTP status you expect
 
-Return only the JSON array. Nothing else.`;
+Return ONLY the JSON array. Nothing else.`;
 }
