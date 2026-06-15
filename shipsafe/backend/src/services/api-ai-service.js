@@ -1,8 +1,6 @@
 import { generateBody } from './api-data-generator.js';
 import { buildMemoryContext } from './api-memory.js';
-
-const OLLAMA_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434/api/generate';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5';
+import { askAI } from './ai-provider.js';
 
 // Generate test cases for a single endpoint.
 // memory: ApiEndpointMemory record (or null) — injected as context into the AI prompt.
@@ -12,23 +10,7 @@ export async function generateApiTestCases(endpoint, memory = null) {
   const memoryCtx = memory ? buildMemoryContext(memory) : '';
   const prompt = buildPrompt({ ...endpoint, body: enrichedBody }, memoryCtx);
 
-  const res = await fetch(OLLAMA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      prompt,
-      stream: false,
-      options: { num_predict: 4096, temperature: 0.2 },
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Ollama error ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const { response } = await res.json();
+  const response = await askAI(prompt, { maxTokens: 4096 });
   const cleaned = response.trim()
     .replace(/^```(?:json)?\n?/i, '')
     .replace(/\n?```$/i, '')

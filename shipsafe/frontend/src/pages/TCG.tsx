@@ -68,7 +68,7 @@ export default function TCG() {
   const [impactedAreas, setImpactedAreas] = useState<string[]>([]);
   const [cases, setCases] = useState<LocalCase[]>([]);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<LocalCase>>({});
   const [activating, setActivating] = useState(false);
@@ -96,7 +96,7 @@ export default function TCG() {
       setScenarios(data.scenarios);
       setImpactedAreas(data.impactedAreas);
       setCases(full.cases as LocalCase[]);
-      setExpandedId(null);
+      setExpandedIds(new Set());
       setEditingId(null);
       setPhase('review');
     } catch (err) {
@@ -107,7 +107,7 @@ export default function TCG() {
 
   function startEdit(tc: LocalCase) {
     setEditingId(tc.id);
-    setExpandedId(tc.id);
+    setExpandedIds(prev => new Set([...prev, tc.id]));
     setEditDraft({
       title: tc.title,
       type: tc.type,
@@ -144,7 +144,7 @@ export default function TCG() {
       });
       const newCase = { ...created } as LocalCase;
       setCases(prev => [...prev, newCase]);
-      setExpandedId(created.id);
+      setExpandedIds(prev => new Set([...prev, created.id]));
       setEditingId(created.id);
       setEditDraft({
         title: created.title,
@@ -163,7 +163,7 @@ export default function TCG() {
     try {
       await api.delete(`/api/tcg/cases/${id}`);
       setCases(prev => prev.filter(c => c.id !== id));
-      if (expandedId === id) setExpandedId(null);
+      setExpandedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed');
     }
@@ -416,9 +416,27 @@ export default function TCG() {
       )}
 
       {/* Test case list */}
+      {activeCases.length > 0 && (
+        <div className="flex items-center justify-end gap-2 mb-2">
+          <button
+            onClick={() => setExpandedIds(new Set(activeCases.map(c => c.id)))}
+            className="btn-secondary text-xs"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+            Expand all
+          </button>
+          <button
+            onClick={() => setExpandedIds(new Set())}
+            className="btn-secondary text-xs"
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
+            Collapse all
+          </button>
+        </div>
+      )}
       <div className="space-y-3">
         {activeCases.map((tc, idx) => {
-          const isExpanded = expandedId === tc.id;
+          const isExpanded = expandedIds.has(tc.id);
           const isEditing = editingId === tc.id;
 
           return (
@@ -431,7 +449,7 @@ export default function TCG() {
 
                 <button
                   className="flex-1 text-left"
-                  onClick={() => setExpandedId(isExpanded ? null : tc.id)}
+                  onClick={() => setExpandedIds(prev => { const next = new Set(prev); isExpanded ? next.delete(tc.id) : next.add(tc.id); return next; })}
                 >
                   {isEditing ? (
                     <input

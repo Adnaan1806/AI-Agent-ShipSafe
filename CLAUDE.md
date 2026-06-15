@@ -437,7 +437,7 @@ FRONTEND_URL=http://localhost:5173
 
 ```env
 # Frontend (.env)
-VITE_API_URL=http://localhost:3001
+ =http://localhost:3001
 ```
 
 ---
