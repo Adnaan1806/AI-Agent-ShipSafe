@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Brain, Sparkles, ChevronDown, ChevronUp, Pencil, Trash2,
   Check, X, Download, Copy, CheckCheck, AlertTriangle, Loader2, Plus,
+  Cpu, Cloud,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { TestCase } from '../lib/types';
@@ -36,11 +37,14 @@ const PRIORITY_COLORS: Record<string, string> = {
   P3: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
 };
 
+type Provider = 'groq' | 'ollama';
+
 export default function TCG() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [phase, setPhase] = useState<Phase>('input');
   const [requirementText, setRequirementText] = useState('');
   const [suiteName, setSuiteName] = useState('');
+  const [provider, setProvider] = useState<Provider>('groq');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -85,6 +89,7 @@ export default function TCG() {
       const data = await api.post<GenerateResponse>('/api/tcg/generate', {
         requirementText: requirementText.trim(),
         suiteName: suiteName.trim() || undefined,
+        provider,
       });
 
       // fetch the full suite with cases (generate returns suite without cases inline)
@@ -265,6 +270,34 @@ export default function TCG() {
               value={suiteName}
               onChange={e => setSuiteName(e.target.value)}
             />
+          </div>
+
+          <div>
+            <label className="label">AI model</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'groq' as Provider, label: 'Groq', sublabel: 'llama-3.3-70b · cloud', icon: <Cloud className="w-4 h-4" /> },
+                { id: 'ollama' as Provider, label: 'Ollama', sublabel: 'local · unlimited · private', icon: <Cpu className="w-4 h-4" />, note: 'requires local setup' },
+              ]).map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setProvider(p.id)}
+                  className={`card px-3 py-2.5 text-left transition-all ${
+                    provider === p.id
+                      ? 'border-violet-500/50 bg-violet-500/5'
+                      : 'border-gray-700/50 hover:border-gray-600'
+                  }`}
+                >
+                  <div className={`flex items-center gap-2 mb-0.5 ${provider === p.id ? 'text-violet-400' : 'text-gray-400'}`}>
+                    {p.icon}
+                    <span className="text-xs font-semibold">{p.label}</span>
+                    {'note' in p && p.note && <span className="text-[10px] text-gray-600 ml-auto">{p.note}</span>}
+                  </div>
+                  <p className="text-[11px] text-gray-600">{p.sublabel}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           {error && (

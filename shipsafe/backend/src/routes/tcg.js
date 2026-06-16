@@ -7,7 +7,7 @@ const router = Router();
 // POST /api/tcg/generate
 // body: { requirementText, suiteName?, projectId? }
 router.post('/generate', async (req, res) => {
-  const { requirementText, suiteName, projectId } = req.body;
+  const { requirementText, suiteName, projectId, provider } = req.body;
 
   if (!requirementText?.trim()) {
     return res.status(400).json({ error: 'requirementText is required' });
@@ -22,7 +22,7 @@ router.post('/generate', async (req, res) => {
 
   let aiResult;
   try {
-    aiResult = await generateTestCases(requirementText.trim());
+    aiResult = await generateTestCases(requirementText.trim(), provider || null);
   } catch (err) {
     return res.status(502).json({ error: `AI generation failed: ${err.message}` });
   }

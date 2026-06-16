@@ -4,13 +4,13 @@ import { askAI } from './ai-provider.js';
 
 // Generate test cases for a single endpoint.
 // memory: ApiEndpointMemory record (or null) — injected as context into the AI prompt.
-export async function generateApiTestCases(endpoint, memory = null) {
+export async function generateApiTestCases(endpoint, memory = null, provider = null) {
   // Enrich the body with realistic values before handing to AI
   const enrichedBody = endpoint.body ? generateBody(endpoint.body) : null;
   const memoryCtx = memory ? buildMemoryContext(memory) : '';
   const prompt = buildPrompt({ ...endpoint, body: enrichedBody }, memoryCtx);
 
-  const response = await askAI(prompt, { maxTokens: 4096 });
+  const response = await askAI(prompt, { maxTokens: 4096, ...(provider && { provider }) });
   const cleaned = response.trim()
     .replace(/^```(?:json)?\n?/i, '')
     .replace(/\n?```$/i, '')
@@ -36,9 +36,28 @@ function buildPrompt(endpoint, memoryCtx) {
   const bodyStr = endpoint.body ? JSON.stringify(endpoint.body, null, 2) : 'null';
   const headersStr = JSON.stringify(endpoint.headers, null, 2);
 
+  // Detect if this endpoint requires Bearer auth (placeholder left by the parser)
+  const requiresAuth = Object.values(endpoint.headers ?? {}).some(
+    v => typeof v === 'string' && v.includes('{{authToken}}')
+  );
+
+  // Detect registration endpoints — must use a unique email to avoid 409 conflicts on re-runs
+  const isRegisterEndpoint =
+    /register/i.test(endpoint.url) || /register/i.test(endpoint.name);
+
   const methodNote = isReadOnly
     ? `IMPORTANT: This is a ${endpoint.method} request — no request body. Only generate URL/path variation tests.`
     : `This is a ${endpoint.method} request with a body. Vary the payload for each test type.`;
+
+  const authNote = requiresAuth
+    ? `\nIMPORTANT — Authentication: the test runner performs a pre-flight login and injects the real token as {{authToken}}.
+- For positive tests: include "Authorization": "Bearer {{authToken}}" in headers (the runner resolves it automatically).
+- For auth tests (testing 401): omit the Authorization header entirely.`
+    : '';
+
+  const registerNote = isRegisterEndpoint && !isReadOnly
+    ? `\nIMPORTANT — Registration endpoint: for the positive test, generate a UNIQUE email such as "qa_${Math.floor(Math.random() * 900000) + 100000}@example.com" so it never conflicts with an already-registered user. Do NOT reuse the email from the endpoint template.`
+    : '';
 
   const testIdeas = isReadOnly
     ? `- Happy path: call as-is → expect 200
@@ -59,6 +78,7 @@ Endpoint:
   Headers: ${headersStr}
   Body: ${bodyStr}
   Description: ${endpoint.description || 'none'}
+${authNote}${registerNote}
 
 ${methodNote}
 

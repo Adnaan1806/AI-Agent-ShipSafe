@@ -54,7 +54,7 @@ router.post('/run', upload.fields([{ name: 'collection', maxCount: 1 }, { name: 
     },
   });
 
-  runApiTests(session.id, endpoints, req.user.id, req.body.projectId || null).catch(err => {
+  runApiTests(session.id, endpoints, req.user.id, req.body.projectId || null, req.body.provider || null).catch(err => {
     console.error(`[api-testing] session ${session.id} crashed:`, err);
   });
 
@@ -98,7 +98,7 @@ router.post('/run-openapi', upload.fields([{ name: 'spec', maxCount: 1 }, { name
     },
   });
 
-  runApiTests(session.id, endpoints, req.user.id, req.body.projectId || null).catch(err => {
+  runApiTests(session.id, endpoints, req.user.id, req.body.projectId || null, req.body.provider || null).catch(err => {
     console.error(`[api-testing] openapi session ${session.id} crashed:`, err);
   });
 
@@ -361,51 +361,81 @@ router.post('/sessions/:id/report', async (req, res) => {
 // Async runners
 // ════════════════════════════════════════════════════════════════════════════
 
-async function runApiTests(sessionId, endpoints, userId, projectId) {
+async function runApiTests(sessionId, endpoints, userId, projectId, provider = null) {
   await prisma.testSession.update({ where: { id: sessionId }, data: { status: 'running' } });
   const emit = (type, data) => sseEmitter.emit(sessionId, { type, data });
   const failureBatch = [];
 
-  try {
-    for (let i = 0; i < endpoints.length; i++) {
-      const endpoint = endpoints[i];
-      emit('endpoint_start', { index: i, total: endpoints.length, name: endpoint.name, method: endpoint.method, url: endpoint.url });
+  // Pre-flight: obtain a real auth token so positive tests on protected endpoints pass.
+  // Find the first login endpoint that has credentials in its body.
+  const ctx = new WorkflowContext();
+  const loginEndpoint = endpoints.find(ep =>
+    ep.method === 'POST' &&
+    /\/(auth\/)?login$/i.test(ep.url) &&
+    ep.body?.email &&
+    ep.body?.password
+  );
+  if (loginEndpoint) {
+    try {
+      const loginResult = await executeHttpTest({
+        method: 'POST',
+        url: loginEndpoint.url,
+        headers: { 'Content-Type': 'application/json' },
+        body: loginEndpoint.body,
+        expectedStatus: 200,
+      });
+      if (loginResult.actualStatus === 200 && loginResult.responseBody?.token) {
+        ctx.set('authToken', loginResult.responseBody.token);
+        emit('auth_preflight', { status: 'success', url: loginEndpoint.url });
+      } else {
+        emit('auth_preflight', { status: 'no_token', url: loginEndpoint.url });
+      }
+    } catch (err) {
+      emit('auth_preflight', { status: 'failed', url: loginEndpoint.url, error: err.message });
+    }
+  }
 
-      // Load agent memory for this endpoint
+  try {
+    // Announce all endpoints upfront so the UI shows them all immediately
+    for (let i = 0; i < endpoints.length; i++) {
+      const ep = endpoints[i];
+      emit('endpoint_start', { index: i, total: endpoints.length, name: ep.name, method: ep.method, url: ep.url });
+    }
+
+    // Process endpoints concurrently (limit 3 — safe for Ollama and Groq)
+    await runWithConcurrency(endpoints, 3, async (endpoint, i) => {
       const memory = await getMemory(projectId, endpoint.method, endpoint.url).catch(() => null);
 
       let testCases;
       try {
-        testCases = await generateApiTestCases(endpoint, memory);
+        testCases = await generateApiTestCases(endpoint, memory, provider);
       } catch (err) {
         emit('endpoint_error', { index: i, name: endpoint.name, error: err.message });
         await saveResult(sessionId, i * 1000, `${endpoint.method} ${endpoint.name}`, 'AI generation failed', {
           status: 'error', actualStatus: null, durationMs: 0, error: err.message, responseBody: null, expectedStatus: 0,
         }, null);
-        continue;
+        return;
       }
 
       emit('tests_generated', { index: i, name: endpoint.name, count: testCases.length, descriptions: testCases.map(t => t.description) });
 
       const settled = await Promise.allSettled(
-        testCases.map((tc, j) => runSingleTest(sessionId, i, j, endpoint, tc, emit, projectId))
+        testCases.map((tc, j) => runSingleTest(sessionId, i, j, endpoint, tc, emit, projectId, ctx))
       );
 
       const results = settled.map(s => s.status === 'fulfilled' ? s.value : { status: 'error', durationMs: 0 });
 
-      // Collect failures for RCA
       settled.forEach((s, j) => {
         if (s.status === 'fulfilled' && s.value.status !== 'passed') {
           failureBatch.push({ testCase: testCases[j], result: s.value, memory });
         }
       });
 
-      // Update agent memory
       await updateMemory(projectId, endpoint.method, endpoint.url, results).catch(() => {});
 
       const epPassed = results.filter(r => r.status === 'passed').length;
       emit('endpoint_done', { index: i, name: endpoint.name, passed: epPassed, total: testCases.length });
-    }
+    });
 
     const allResults = await prisma.testResult.findMany({ where: { sessionId } });
     const passed = allResults.filter(r => r.status === 'passed').length;
@@ -444,12 +474,17 @@ async function runApiTests(sessionId, endpoints, userId, projectId) {
   }
 }
 
-async function runSingleTest(sessionId, endpointIdx, testIdx, endpoint, tc, emit, projectId) {
+async function runSingleTest(sessionId, endpointIdx, testIdx, endpoint, tc, emit, projectId, ctx = null) {
   const method = tc.method || endpoint.method;
-  const url = tc.url || endpoint.url;
-  const headers = tc.headers || endpoint.headers;
-  const body = tc.body ?? null;
+  const rawUrl = tc.url || endpoint.url;
+  const rawHeaders = tc.headers || endpoint.headers;
+  const rawBody = tc.body ?? null;
   const expectedStatus = tc.expectedStatus ?? 200;
+
+  // Resolve {{authToken}} and any other context variables before execution
+  const url = ctx ? ctx.resolve(rawUrl) : rawUrl;
+  const headers = ctx ? ctx.resolveObject(rawHeaders ?? {}) : (rawHeaders ?? {});
+  const body = ctx ? ctx.resolveObject(rawBody) : rawBody;
 
   const result = await executeHttpTest({ method, url, headers, body, expectedStatus });
 
@@ -496,6 +531,7 @@ async function runSingleTest(sessionId, endpointIdx, testIdx, endpoint, tc, emit
 
   return { ...result, status: finalStatus, durationMs: result.durationMs };
 }
+
 
 async function runSecurityTests(sessionId, endpoints, userId, projectId) {
   const emit = (type, data) => sseEmitter.emit(sessionId, { type, data });
@@ -604,7 +640,7 @@ async function runAutonomous(sessionId, endpoints, userId, projectId, opts = {})
 
       let testCases;
       try {
-        testCases = await generateApiTestCases(endpoint, memory);
+        testCases = await generateApiTestCases(endpoint, memory, null);
       } catch (err) {
         emit('endpoint_error', { index: i, name: endpoint.name, error: err.message });
         continue;
@@ -704,6 +740,18 @@ async function runAutonomous(sessionId, endpoints, userId, projectId, opts = {})
     await prisma.testSession.update({ where: { id: sessionId }, data: { status: 'failed', completedAt: new Date() } }).catch(() => {});
     emit('error', { error: err.message });
   }
+}
+
+// Run items with a max concurrency limit
+async function runWithConcurrency(items, limit, fn) {
+  let idx = 0;
+  async function next() {
+    if (idx >= items.length) return;
+    const i = idx++;
+    await fn(items[i], i).catch(() => {});
+    await next();
+  }
+  await Promise.allSettled(Array.from({ length: Math.min(limit, items.length) }, next));
 }
 
 async function saveResult(sessionId, stepIndex, toolName, stepName, result, input, extra = {}) {

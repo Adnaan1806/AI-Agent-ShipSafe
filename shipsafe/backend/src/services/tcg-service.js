@@ -1,6 +1,6 @@
 import { askAI } from './ai-provider.js';
 
-export async function generateTestCases(requirementText) {
+export async function generateTestCases(requirementText, provider = null) {
   const prompt = `You are a senior QA engineer responsible for creating a complete, traceable, and executable test suite from acceptance criteria.
 
 Requirement:
@@ -192,7 +192,7 @@ Return a single JSON object:
 
 Return valid JSON only. No markdown. No explanation. Every bracket must close. Do not truncate.`;
 
-  const response = await askAI(prompt, { maxTokens: 8192 });
+  const response = await askAI(prompt, { maxTokens: 8192, ...(provider && { provider }) });
   const cleaned = response.trim()
     .replace(/^```(?:json)?\n?/i, '')
     .replace(/\n?```$/i, '')

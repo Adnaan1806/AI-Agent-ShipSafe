@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Zap, Upload, FileJson, X, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronRight, Loader2, Download, RotateCcw, Play,
-  Shield, Gauge, Bot, Globe, ChevronUp, Info,
+  Shield, Gauge, Bot, Globe, ChevronUp, Info, Cpu, Cloud,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -139,8 +139,16 @@ const MODES: { id: Mode; label: string; desc: string; icon: React.ReactNode }[] 
 
 // ── Main component ─────────────────────────────────────────────────────────
 
+type Provider = 'groq' | 'ollama';
+
+const PROVIDERS: { id: Provider; label: string; sublabel: string; icon: React.ReactNode; note?: string }[] = [
+  { id: 'groq', label: 'Groq', sublabel: 'llama-3.3-70b · cloud', icon: <Cloud className="w-4 h-4" /> },
+  { id: 'ollama', label: 'Ollama', sublabel: 'local · unlimited · private', icon: <Cpu className="w-4 h-4" />, note: 'requires local setup' },
+];
+
 export default function APITesting() {
   const [mode, setMode] = useState<Mode>('standard');
+  const [provider, setProvider] = useState<Provider>('groq');
   const [phase, setPhase] = useState<'upload' | 'running' | 'complete'>('upload');
 
   // Upload inputs
@@ -206,6 +214,7 @@ export default function APITesting() {
       if (openApiFile) body.append('spec', openApiFile);
       else body.append('url', openApiUrl);
       if (envFile) body.append('env', envFile);
+      body.append('provider', provider);
     } else {
       if (!collectionFile) { setError('Collection file is required'); setSubmitting(false); return; }
       const endpoint = mode === 'autonomous' ? '/api/api-testing/autonomous' : '/api/api-testing/run';
@@ -213,6 +222,7 @@ export default function APITesting() {
       body = new FormData();
       body.append('collection', collectionFile);
       if (envFile) body.append('env', envFile);
+      body.append('provider', provider);
     }
 
     let data: RunResponse;
@@ -409,6 +419,7 @@ export default function APITesting() {
   function handleReset() {
     sseRef.current?.close();
     setPhase('upload');
+    setProvider('groq');
     setCollectionFile(null);
     setOpenApiFile(null);
     setOpenApiUrl('');
@@ -464,6 +475,31 @@ export default function APITesting() {
                 <p className="text-[11px] text-gray-600 leading-tight">{m.desc}</p>
               </button>
             ))}
+          </div>
+
+          {/* Model selector */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">AI model</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PROVIDERS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setProvider(p.id)}
+                  className={`card px-3 py-2.5 text-left transition-all ${
+                    provider === p.id
+                      ? 'border-amber-500/50 bg-amber-500/5'
+                      : 'border-gray-700/50 hover:border-gray-600'
+                  }`}
+                >
+                  <div className={`flex items-center gap-2 mb-0.5 ${provider === p.id ? 'text-amber-400' : 'text-gray-400'}`}>
+                    {p.icon}
+                    <span className="text-xs font-semibold">{p.label}</span>
+                    {p.note && <span className="text-[10px] text-gray-600 ml-auto">{p.note}</span>}
+                  </div>
+                  <p className="text-[11px] text-gray-600">{p.sublabel}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* OpenAPI URL or file */}

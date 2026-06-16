@@ -77,6 +77,17 @@ function parseRequest(item, env) {
     }
   }
 
+  // Replace hardcoded expired JWT Bearer tokens with a {{authToken}} placeholder.
+  // The test runner does a pre-flight login and resolves this before execution.
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === 'authorization') {
+      const val = headers[key];
+      if (val && val.startsWith('Bearer ') && val.slice(7).startsWith('eyJ')) {
+        headers[key] = 'Bearer {{authToken}}';
+      }
+    }
+  }
+
   return {
     name: item.name || rawUrl,
     method: (req.method ?? 'GET').toUpperCase(),
